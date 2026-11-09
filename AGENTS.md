@@ -88,10 +88,33 @@ CREATE UNIQUE INDEX uq_employees_nip_active
     WHERE deleted_at IS NULL;
 ```
 
-Contoh di entity:
+Filter data terhapus **tidak perlu** ditulis di tiap entity. `AuditableEntity` sudah diberi `@SQLRestriction("deleted_at IS NULL")`, sehingga semua entity turunannya otomatis hanya membaca data aktif.
 
 ```java
+@MappedSuperclass
+@EntityListeners(AuditingEntityListener.class)
 @SQLRestriction("deleted_at IS NULL")
+public abstract class AuditableEntity {
+    // ...
+}
+```
+
+Konsekuensi: data yang sudah di-soft-delete tidak bisa dibaca lewat JPA (termasuk `findByUuid`). Jika suatu saat butuh tampilan arsip/restore, gunakan native query dan jangan hapus `@SQLRestriction` dari base entity.
+
+Kolom `deleted_at` **tidak perlu** diberi index penuh (`CREATE INDEX ... (deleted_at)`). Query normal selalu memakai `deleted_at IS NULL` yang cocok untuk hampir semua baris, sehingga planner memilih sequential scan. Index yang berguna adalah index parsial pada kolom filter, misalnya:
+
+```sql
+CREATE UNIQUE INDEX uq_employees_nip_active
+    ON employees (nip)
+    WHERE deleted_at IS NULL;
+```
+
+Jika nanti ada fitur arsip, baru tambahkan index parsial khusus data terhapus:
+
+```sql
+CREATE INDEX idx_employees_deleted_at
+    ON employees (deleted_at)
+    WHERE deleted_at IS NOT NULL;
 ```
 
 Helper soft delete:
@@ -148,9 +171,6 @@ CREATE INDEX idx_employees_uuid
 CREATE UNIQUE INDEX uq_employees_nip_active
     ON employees (nip)
     WHERE deleted_at IS NULL;
-
-CREATE INDEX idx_employees_deleted_at
-    ON employees (deleted_at);
 ```
 
 Contoh tabel anak dengan FK:
@@ -579,8 +599,10 @@ Contoh JSON:
 - [ ] Default sort `id DESC` jika `sort` tidak dikirim, dan field sort di-whitelist
 - [ ] Update memakai `PUT` full payload, bukan `PATCH` parsial
 - [ ] Request relasi memakai `<relasi>_uuid` dan di-resolve ke FK `id`
-- [ ] Query/repository mengecualikan `deleted_at IS NOT NULL`
+- [ ] Entity extends `AuditableEntity` sehingga filter `deleted_at IS NULL` otomatis aktif (tidak perlu `@SQLRestriction` per entity)
+- [ ] Query/repository mengecualikan data terhapus (`deleted_at IS NULL`)
 - [ ] Unique constraint memakai partial index `WHERE deleted_at IS NULL`
+- [ ] Tidak membuat index penuh pada `deleted_at` (pakai index parsial bila memang butuh fitur arsip)
 - [ ] Migration baru (tidak mengedit migration lama)
 - [ ] Entity dan migration konsisten dengan `ddl-auto: validate`
 - [ ] `./gradlew test` lulus
