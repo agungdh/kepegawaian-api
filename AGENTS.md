@@ -420,6 +420,119 @@ Jangan gunakan fitur Lombok yang masih **experimental**, termasuk:
 
 Hanya gunakan fitur Lombok yang stabil.
 
+## Pagination (Infinite Scroll)
+
+Semua endpoint list memakai **infinite scroll** dengan **keyset/cursor pagination**, bukan offset pagination.
+
+### Aturan
+
+- **Selalu 20 data per request.** Tidak ada parameter `size`.
+- Cursor hanya memakai query param **`?after=<uuid>`** (UUID item terakhir yang sudah diterima FE). Tidak ada cursor token/encoded cursor.
+- Jika `after` tidak dikirim → ambil halaman pertama.
+- `after` **wajib** di-resolve dulu ke baris asal untuk mendapatkan `id` (dan nilai kolom sort-nya), baru ambil data setelah baris tersebut.
+- Wajib mendukung **filter** dan **sort**.
+- Jika `sort` tidak dikirim, default **`id DESC`**.
+- Cek `hasNext` dengan mengambil **`limit + 1`** data (20 + 1 = 21):
+  - kalau hasil > 20 → `hasNext = true`, buang data ke-21.
+  - kalau hasil ≤ 20 → `hasNext = false`.
+- Jangan memakai `COUNT(*)` untuk total data.
+- Jangan memakai `page`, `offset`, atau `slice` berbasis offset.
+
+### Query Param
+
+```
+GET /api/employees?after=<uuid>&sort=name,asc&departmentUuid=<uuid>
+```
+
+- `after` → UUID item terakhir (opsional).
+- `sort` → `<field>,<asc|desc>` (opsional, default `id,desc`).
+- Filter lain mengikuti konvensi UUID (`<relasi>_uuid`), bukan `id`.
+
+Field `sort` **wajib whitelist** per endpoint (contoh: `name`, `nip`, `created_at`, `id`). Jangan menerima nama kolom bebas dari request.
+
+### Alur Query
+
+1. Resolve `after` (jika ada):
+
+```sql
+SELECT id, name
+FROM employees
+WHERE uuid = :afterUuid
+  AND deleted_at IS NULL;
+```
+
+2. Ambil data dengan keyset pagination memakai nilai sort + `id` sebagai tie-breaker, `LIMIT 21`.
+
+Contoh default `sort=id,desc`:
+
+```sql
+SELECT *
+FROM employees
+WHERE deleted_at IS NULL
+  AND (:afterId IS NULL OR id < :afterId)
+ORDER BY id DESC
+LIMIT 21;
+```
+
+Contoh `sort=name,asc` (tie-breaker `id`):
+
+```sql
+SELECT *
+FROM employees
+WHERE deleted_at IS NULL
+  AND (
+      :afterId IS NULL
+      OR name > :afterName
+      OR (name = :afterName AND id > :afterId)
+  )
+ORDER BY name ASC, id ASC
+LIMIT 21;
+```
+
+Contoh `sort=name,desc`:
+
+```sql
+SELECT *
+FROM employees
+WHERE deleted_at IS NULL
+  AND (
+      :afterId IS NULL
+      OR name < :afterName
+      OR (name = :afterName AND id < :afterId)
+  )
+ORDER BY name DESC, id DESC
+LIMIT 21;
+```
+
+`id` sebagai tie-breaker **wajib** ditambahkan ke `ORDER BY` agar urutan stabil saat nilai sort sama.
+
+### Response
+
+Response memakai record generik:
+
+```java
+public record CursorPageResponse<T>(
+        List<T> items,
+        boolean hasNext,
+        UUID nextAfter
+) {
+}
+```
+
+- `items` berisi maksimal 20 data.
+- `nextAfter` = `uuid` item terakhir pada `items` (dipakai FE sebagai `after` berikutnya), atau `null` jika kosong.
+- Karena `uuid` di proyek ini tidak diberi constraint `UNIQUE`, lookup `after` diasumsikan UUID unik secara aplikasi; ambil satu baris saja (mis. `findFirstByUuidAndDeletedAtIsNull`). Jika tidak ditemukan, kembalikan `400 Bad Request`.
+
+Contoh JSON:
+
+```json
+{
+  "items": [],
+  "hasNext": true,
+  "nextAfter": "0f8fad5b-d9cb-469f-a165-70867728950e"
+}
+```
+
 ## Checklist Sebelum Selesai
 
 - [ ] Primary key `id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY`
@@ -433,6 +546,8 @@ Hanya gunakan fitur Lombok yang stabil.
 - [ ] DTO hanya mengekspos `uuid` dan `<relasi>_uuid` (tidak ada `id` / `<relasi>_id`)
 - [ ] Semua DTO berupa `record` (tanpa anotasi Lombok)
 - [ ] Lombok hanya dipakai di tempat yang cocok dan tanpa fitur experimental
+- [ ] Endpoint list memakai cursor `after=<uuid>`, ambil `limit + 1`, selalu 20 data
+- [ ] Default sort `id DESC` jika `sort` tidak dikirim, dan field sort di-whitelist
 - [ ] Request relasi memakai `<relasi>_uuid` dan di-resolve ke FK `id`
 - [ ] Query/repository mengecualikan `deleted_at IS NOT NULL`
 - [ ] Unique constraint memakai partial index `WHERE deleted_at IS NULL`
@@ -453,5 +568,9 @@ Hanya gunakan fitur Lombok yang stabil.
 - ❌ Anotasi Lombok pada `record`/DTO
 - ❌ Fitur Lombok experimental (`@Accessors`, `@FieldDefaults`, `@SuperBuilder`, `@Delegate`, dll.)
 - ❌ `@Data` pada entity JPA
+- ❌ Offset pagination (`page`/`offset`/`size`) untuk endpoint list
+- ❌ Cursor token/encoded cursor (cukup `?after=<uuid>`)
+- ❌ `COUNT(*)` untuk menentukan `hasNext`
+- ❌ Menerima nama kolom `sort` tanpa whitelist
 - ❌ Mengedit migration yang sudah dijalankan
 - ❌ Membuat tabel lewat `ddl-auto` / auto-generate Hibernate
