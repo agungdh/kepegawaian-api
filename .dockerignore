@@ -1,4 +1,16 @@
-# Only the prebuilt Boot jar is needed in the image context.
-*
-!build/libs/
-!build/libs/*.jar
+# Keep the build context small; the image only needs the prebuilt Boot jar.
+.git
+.gitignore
+.gradle
+.idea
+.settings
+.vscode
+*.iml
+
+# Gradle outputs that the runtime image does not use.
+build/classes
+build/generated
+build/reports
+build/resources
+build/test-results
+build/tmp
