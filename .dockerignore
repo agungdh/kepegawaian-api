@@ -1,0 +1,4 @@
+# Only the prebuilt Boot jar is needed in the image context.
+*
+!build/libs/
+!build/libs/*.jar
