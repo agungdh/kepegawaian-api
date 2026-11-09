@@ -59,7 +59,8 @@ class DepartmentControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.name").value("Departemen Diubah"))
                 .andExpect(jsonPath("$.description").doesNotExist())
-                .andExpect(jsonPath("$.updatedAt").isNotEmpty());
+                .andExpect(jsonPath("$.createdAt").doesNotExist())
+                .andExpect(jsonPath("$.updatedAt").doesNotExist());
 
         mockMvc.perform(delete("/api/departments/{uuid}", uuid))
                 .andExpect(status().isNoContent());

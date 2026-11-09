@@ -190,9 +190,7 @@ public class DepartmentService {
                 department.getUuid(),
                 department.getCode(),
                 department.getName(),
-                department.getDescription(),
-                department.getCreatedAt(),
-                department.getUpdatedAt()
+                department.getDescription()
         );
     }
 }

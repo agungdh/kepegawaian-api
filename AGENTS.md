@@ -73,6 +73,7 @@ Ketentuan:
 - Kolom `*_by` bertipe **sama dengan ID user**, yaitu `BIGINT`. Tabel `users` belum ada, jadi untuk sementara **tanpa foreign key**. Saat modul user dibuat, tambahkan FK ke `users(id)` tanpa mengubah tipe kolom.
 - `created_at`/`updated_at` **tanpa `DEFAULT`**; nilainya diisi oleh aplikasi melalui JPA auditing (`@CreatedDate`/`@LastModifiedDate`). Nilai `NULL` tetap diizinkan untuk data hasil import.
 - `deleted_at` dan `deleted_by` `NULL` berarti data aktif.
+- **Kolom audit tidak boleh diekspos ke API/FE.** Jangan sertakan `created_at`, `created_by`, `updated_at`, `updated_by`, `deleted_at`, atau `deleted_by` di DTO response maupun request. Kolom ini hanya dipakai internal (audit dan soft delete).
 
 ### 4. Soft Delete
 
@@ -287,7 +288,7 @@ public class Employee extends AuditableEntity {
 ### UUID untuk API (Wajib)
 
 - **Jangan pernah** mengembalikan entity JPA langsung dari controller. Selalu pakai DTO.
-- DTO response hanya berisi `uuid` dan `<relasi>_uuid`. **Jangan** sertakan `id` atau `<relasi>_id`.
+- DTO response hanya berisi `uuid` dan `<relasi>_uuid`. **Jangan** sertakan `id`, `<relasi>_id`, atau kolom audit (`created_at`, `created_by`, `updated_at`, `updated_by`, `deleted_at`, `deleted_by`).
 - DTO request untuk relasi memakai `<relasi>_uuid`. Service wajib resolve UUID tersebut menjadi entity/FK `id` di database.
 - Path endpoint memakai UUID, contoh `GET /api/employees/{uuid}`.
 - Repository menyediakan lookup berbasis UUID:
@@ -571,6 +572,7 @@ Contoh JSON:
 - [ ] Semua kolom `*_by` bertipe `BIGINT`
 - [ ] Entity extends `AuditableEntity`
 - [ ] DTO hanya mengekspos `uuid` dan `<relasi>_uuid` (tidak ada `id` / `<relasi>_id`)
+- [ ] DTO tidak mengekspos kolom audit (`created_at`, `created_by`, `updated_at`, `updated_by`, `deleted_at`, `deleted_by`)
 - [ ] Semua DTO berupa `record` (tanpa anotasi Lombok)
 - [ ] Lombok hanya dipakai di tempat yang cocok dan tanpa fitur experimental
 - [ ] Endpoint list memakai cursor `after=<uuid>`, ambil `limit + 1`, selalu 20 data, response `{ items, next }`
@@ -589,6 +591,7 @@ Contoh JSON:
 - ❌ `SERIAL` / `BIGSERIAL` / UUID sebagai PK
 - ❌ Menjadikan `uuid` sebagai primary key atau memberinya `UNIQUE`
 - ❌ Mengekspos `id` atau `<relasi>_id` ke API/FE
+- ❌ Mengekspos kolom audit (`created_at`, `created_by`, `updated_at`, `updated_by`, `deleted_at`, `deleted_by`) ke API/FE
 - ❌ `timestamp without time zone` untuk kolom audit
 - ❌ `NOT NULL` pada kolom audit (harus nullable agar aman saat import)
 - ❌ Tabel tanpa kolom audit
