@@ -343,6 +343,33 @@ new EmployeeResponse(
 );
 ```
 
+### Update Wajib PUT (Full Update)
+
+- Endpoint update memakai **`PUT`** dengan payload **lengkap**, bukan `PATCH` parsial.
+- Semua field yang bisa diedit **wajib dikirim** di request. Field yang tidak dikirim dianggap validasi gagal, **bukan** dibiarkan bernilai lama.
+- Jangan membuat endpoint `PATCH` atau logika merge parsial.
+- DTO update tetap `record`, contoh `EmployeeUpdateRequest`, dengan field selengkap create request (kecuali field yang memang tidak boleh diubah).
+- `id`, `uuid`, dan kolom audit tidak boleh ada di request update.
+
+```java
+public record EmployeeUpdateRequest(
+        @NotBlank @Size(max = 30) String nip,
+        @NotBlank @Size(max = 150) String name,
+        @NotNull UUID departmentUuid
+) {
+}
+```
+
+```java
+@PutMapping("/{uuid}")
+public EmployeeResponse update(
+        @PathVariable UUID uuid,
+        @Valid @RequestBody EmployeeUpdateRequest request
+) {
+    return employeeService.update(uuid, request);
+}
+```
+
 ### Auditing
 
 Aktifkan JPA auditing sekali di konfigurasi:
@@ -547,6 +574,7 @@ Contoh JSON:
 - [ ] Lombok hanya dipakai di tempat yang cocok dan tanpa fitur experimental
 - [ ] Endpoint list memakai cursor `after=<uuid>`, ambil `limit + 1`, selalu 20 data, response `{ items, next }`
 - [ ] Default sort `id DESC` jika `sort` tidak dikirim, dan field sort di-whitelist
+- [ ] Update memakai `PUT` full payload, bukan `PATCH` parsial
 - [ ] Request relasi memakai `<relasi>_uuid` dan di-resolve ke FK `id`
 - [ ] Query/repository mengecualikan `deleted_at IS NOT NULL`
 - [ ] Unique constraint memakai partial index `WHERE deleted_at IS NULL`
@@ -567,6 +595,7 @@ Contoh JSON:
 - ❌ Anotasi Lombok pada `record`/DTO
 - ❌ Fitur Lombok experimental (`@Accessors`, `@FieldDefaults`, `@SuperBuilder`, `@Delegate`, dll.)
 - ❌ `@Data` pada entity JPA
+- ❌ `PATCH` atau update parsial (update wajib `PUT` full payload)
 - ❌ Offset pagination (`page`/`offset`/`size`) untuk endpoint list
 - ❌ Cursor token/encoded cursor (cukup `?after=<uuid>`)
 - ❌ `COUNT(*)` untuk menentukan `next`
