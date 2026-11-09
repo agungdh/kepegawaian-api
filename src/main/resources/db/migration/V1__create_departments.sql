@@ -6,9 +6,9 @@ CREATE TABLE departments (
     name        VARCHAR(150) NOT NULL,
     description VARCHAR(500),
 
-    created_at TIMESTAMPTZ DEFAULT now(),
+    created_at TIMESTAMPTZ,
     created_by BIGINT,
-    updated_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ,
     updated_by BIGINT,
     deleted_at TIMESTAMPTZ,
     deleted_by BIGINT

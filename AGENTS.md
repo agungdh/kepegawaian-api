@@ -58,9 +58,9 @@ CREATE INDEX idx_employees_uuid
 Tanpa terkecuali (tabel utama, tabel relasi, tabel lookup, tabel riwayat), setiap tabel harus punya:
 
 ```sql
-created_at TIMESTAMPTZ DEFAULT now(),
+created_at TIMESTAMPTZ,
 created_by BIGINT,
-updated_at TIMESTAMPTZ DEFAULT now(),
+updated_at TIMESTAMPTZ,
 updated_by BIGINT,
 deleted_at TIMESTAMPTZ,
 deleted_by BIGINT
@@ -71,7 +71,7 @@ Ketentuan:
 - **Semua kolom audit nullable** (tanpa `NOT NULL`) agar aman saat import data yang tidak menyertakan kolom audit.
 - Semua kolom `*_at` **wajib** bertipe `TIMESTAMPTZ` (bukan `timestamp`, `timestamp without time zone`, atau `date`).
 - Kolom `*_by` bertipe **sama dengan ID user**, yaitu `BIGINT`. Tabel `users` belum ada, jadi untuk sementara **tanpa foreign key**. Saat modul user dibuat, tambahkan FK ke `users(id)` tanpa mengubah tipe kolom.
-- `created_at`/`updated_at` tetap diberi `DEFAULT now()` agar insert tanpa audit tetap terisi; nilai `NULL` tetap diizinkan.
+- `created_at`/`updated_at` **tanpa `DEFAULT`**; nilainya diisi oleh aplikasi melalui JPA auditing (`@CreatedDate`/`@LastModifiedDate`). Nilai `NULL` tetap diizinkan untuk data hasil import.
 - `deleted_at` dan `deleted_by` `NULL` berarti data aktif.
 
 ### 4. Soft Delete
@@ -133,9 +133,9 @@ CREATE TABLE employees (
     nip  VARCHAR(30)  NOT NULL,
     name VARCHAR(150) NOT NULL,
 
-    created_at TIMESTAMPTZ DEFAULT now(),
+    created_at TIMESTAMPTZ,
     created_by BIGINT,
-    updated_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ,
     updated_by BIGINT,
     deleted_at TIMESTAMPTZ,
     deleted_by BIGINT
@@ -162,9 +162,9 @@ CREATE TABLE attendances (
 
     attendance_date DATE NOT NULL,
 
-    created_at TIMESTAMPTZ DEFAULT now(),
+    created_at TIMESTAMPTZ,
     created_by BIGINT,
-    updated_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ,
     updated_by BIGINT,
     deleted_at TIMESTAMPTZ,
     deleted_by BIGINT,
@@ -566,6 +566,7 @@ Contoh JSON:
 - [ ] `uuid` **tidak** diberi constraint/index `UNIQUE`
 - [ ] Ada 6 kolom audit: `created_at`, `created_by`, `updated_at`, `updated_by`, `deleted_at`, `deleted_by`
 - [ ] **Semua kolom audit nullable** (tanpa `NOT NULL`) agar aman saat import
+- [ ] `created_at`/`updated_at` **tanpa `DEFAULT`** (diisi oleh JPA auditing)
 - [ ] Semua kolom `*_at` bertipe `TIMESTAMPTZ`
 - [ ] Semua kolom `*_by` bertipe `BIGINT`
 - [ ] Entity extends `AuditableEntity`
