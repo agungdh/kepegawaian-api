@@ -432,9 +432,9 @@ Semua endpoint list memakai **infinite scroll** dengan **keyset/cursor paginatio
 - `after` **wajib** di-resolve dulu ke baris asal untuk mendapatkan `id` (dan nilai kolom sort-nya), baru ambil data setelah baris tersebut.
 - Wajib mendukung **filter** dan **sort**.
 - Jika `sort` tidak dikirim, default **`id DESC`**.
-- Cek `hasNext` dengan mengambil **`limit + 1`** data (20 + 1 = 21):
-  - kalau hasil > 20 → `hasNext = true`, buang data ke-21.
-  - kalau hasil ≤ 20 → `hasNext = false`.
+- Cek apakah masih ada data berikutnya dengan mengambil **`limit + 1`** data (20 + 1 = 21):
+  - kalau hasil > 20 → buang data ke-21 dan isi `next`.
+  - kalau hasil ≤ 20 → `next = null`.
 - Jangan memakai `COUNT(*)` untuk total data.
 - Jangan memakai `page`, `offset`, atau `slice` berbasis offset.
 
@@ -513,14 +513,14 @@ Response memakai record generik:
 ```java
 public record CursorPageResponse<T>(
         List<T> items,
-        boolean hasNext,
-        UUID nextAfter
+        UUID next
 ) {
 }
 ```
 
 - `items` berisi maksimal 20 data.
-- `nextAfter` = `uuid` item terakhir pada `items` (dipakai FE sebagai `after` berikutnya), atau `null` jika kosong.
+- `next` = `uuid` item terakhir yang dikembalikan **jika masih ada data berikutnya** (hasil query > 20). Dipakai FE sebagai `after` berikutnya.
+- `next = null` berarti sudah tidak ada data lagi (tidak perlu `hasNext` terpisah).
 - Karena `uuid` di proyek ini tidak diberi constraint `UNIQUE`, lookup `after` diasumsikan UUID unik secara aplikasi; ambil satu baris saja (mis. `findFirstByUuidAndDeletedAtIsNull`). Jika tidak ditemukan, kembalikan `400 Bad Request`.
 
 Contoh JSON:
@@ -528,8 +528,7 @@ Contoh JSON:
 ```json
 {
   "items": [],
-  "hasNext": true,
-  "nextAfter": "0f8fad5b-d9cb-469f-a165-70867728950e"
+  "next": "0f8fad5b-d9cb-469f-a165-70867728950e"
 }
 ```
 
@@ -546,7 +545,7 @@ Contoh JSON:
 - [ ] DTO hanya mengekspos `uuid` dan `<relasi>_uuid` (tidak ada `id` / `<relasi>_id`)
 - [ ] Semua DTO berupa `record` (tanpa anotasi Lombok)
 - [ ] Lombok hanya dipakai di tempat yang cocok dan tanpa fitur experimental
-- [ ] Endpoint list memakai cursor `after=<uuid>`, ambil `limit + 1`, selalu 20 data
+- [ ] Endpoint list memakai cursor `after=<uuid>`, ambil `limit + 1`, selalu 20 data, response `{ items, next }`
 - [ ] Default sort `id DESC` jika `sort` tidak dikirim, dan field sort di-whitelist
 - [ ] Request relasi memakai `<relasi>_uuid` dan di-resolve ke FK `id`
 - [ ] Query/repository mengecualikan `deleted_at IS NOT NULL`
@@ -570,7 +569,7 @@ Contoh JSON:
 - ❌ `@Data` pada entity JPA
 - ❌ Offset pagination (`page`/`offset`/`size`) untuk endpoint list
 - ❌ Cursor token/encoded cursor (cukup `?after=<uuid>`)
-- ❌ `COUNT(*)` untuk menentukan `hasNext`
+- ❌ `COUNT(*)` untuk menentukan `next`
 - ❌ Menerima nama kolom `sort` tanpa whitelist
 - ❌ Mengedit migration yang sudah dijalankan
 - ❌ Membuat tabel lewat `ddl-auto` / auto-generate Hibernate
