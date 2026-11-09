@@ -11,6 +11,7 @@ RUN apt-get update \
       git \
       jq \
       make \
+      openssh-client \
       postgresql-client \
   && rm -rf /var/lib/apt/lists/*
 
