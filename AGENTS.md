@@ -361,6 +361,65 @@ public class JpaAuditingConfig {
 }
 ```
 
+## Aturan Java, Lombok, dan DTO
+
+### DTO Wajib Pakai `record`
+
+- Semua DTO request/response **wajib** berupa Java `record`, bukan class biasa.
+- Record **tidak perlu** dan **jangan** diberi anotasi Lombok (`@Getter`, `@Setter`, `@Data`, dll). Record sudah punya accessor sendiri.
+- Anotasi validasi (`@NotBlank`, `@NotNull`, `@Size`, dll) dan Jackson diletakkan langsung di komponen record.
+- Nama DTO: `XxxRequest`, `XxxResponse`, `XxxCreateRequest`, `XxxUpdateRequest`.
+
+```java
+public record EmployeeCreateRequest(
+        @NotBlank @Size(max = 30) String nip,
+        @NotBlank @Size(max = 150) String name,
+        @NotNull UUID departmentUuid
+) {
+}
+
+public record EmployeeResponse(
+        UUID uuid,
+        String nip,
+        String name,
+        UUID departmentUuid
+) {
+}
+```
+
+### Lombok
+
+Gunakan Lombok di tempat yang memang cocok:
+
+- Entity JPA: `@Getter`, `@Setter`, `@NoArgsConstructor` (dan `@AllArgsConstructor` bila perlu).
+- Service/controller/component: `@RequiredArgsConstructor` untuk constructor injection.
+- Logging: `@Slf4j`.
+- `@Builder` boleh untuk value object/DTO non-record yang memang butuh builder.
+
+Jangan paksa Lombok di tempat yang tidak cocok:
+
+- Jangan pakai `@Data` pada entity JPA (rawan `equals`/`hashCode`/`toString` memicu lazy loading).
+- Jangan pakai Lombok pada `record`, `enum`, atau `interface`.
+- Jangan pakai `@Builder`/`@AllArgsConstructor` hanya demi “biar konsisten” kalau tidak dibutuhkan.
+- Jangan tambahkan anotasi Lombok yang tidak memberi nilai tambah.
+
+### Lombok Experimental Dilarang
+
+Jangan gunakan fitur Lombok yang masih **experimental**, termasuk:
+
+- `@Accessors`
+- `@Delegate`
+- `@ExtensionMethod`
+- `@FieldDefaults`
+- `@Helper`
+- `@NonFinal`
+- `@SuperBuilder`
+- `@Tolerate`
+- `var`
+- `@StandardException`
+
+Hanya gunakan fitur Lombok yang stabil.
+
 ## Checklist Sebelum Selesai
 
 - [ ] Primary key `id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY`
@@ -372,6 +431,8 @@ public class JpaAuditingConfig {
 - [ ] Semua kolom `*_by` bertipe `BIGINT`
 - [ ] Entity extends `AuditableEntity`
 - [ ] DTO hanya mengekspos `uuid` dan `<relasi>_uuid` (tidak ada `id` / `<relasi>_id`)
+- [ ] Semua DTO berupa `record` (tanpa anotasi Lombok)
+- [ ] Lombok hanya dipakai di tempat yang cocok dan tanpa fitur experimental
 - [ ] Request relasi memakai `<relasi>_uuid` dan di-resolve ke FK `id`
 - [ ] Query/repository mengecualikan `deleted_at IS NOT NULL`
 - [ ] Unique constraint memakai partial index `WHERE deleted_at IS NULL`
@@ -388,5 +449,9 @@ public class JpaAuditingConfig {
 - ❌ `timestamp without time zone` untuk kolom audit
 - ❌ `NOT NULL` pada kolom audit (harus nullable agar aman saat import)
 - ❌ Tabel tanpa kolom audit
+- ❌ DTO berupa class biasa (wajib `record`)
+- ❌ Anotasi Lombok pada `record`/DTO
+- ❌ Fitur Lombok experimental (`@Accessors`, `@FieldDefaults`, `@SuperBuilder`, `@Delegate`, dll.)
+- ❌ `@Data` pada entity JPA
 - ❌ Mengedit migration yang sudah dijalankan
 - ❌ Membuat tabel lewat `ddl-auto` / auto-generate Hibernate
